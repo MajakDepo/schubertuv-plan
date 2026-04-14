@@ -36,6 +36,10 @@
 
         .btn-small { background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 8px 12px; font-size: 0.8em; width: auto; margin-left: auto; display: block; margin-bottom: 15px;}
         .btn-small:hover { background: #30363d; color: white; transform: none;}
+        
+        /* Tlačítko pro přesun na další lokaci */
+        #next-station-btn { background: var(--success); margin-top: 15px; }
+        #next-station-btn:hover { background: #36a345; }
 
         .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; color: var(--accent-color); margin-bottom: 15px; padding: 0 5px; opacity: 0.8; border-bottom: 1px solid #30363d; padding-bottom: 10px;}
         
@@ -46,7 +50,20 @@
         .task-box ul { padding-left: 20px; margin-top: 10px; margin-bottom: 10px; }
         .task-box li { margin-bottom: 8px; }
         
-        #message { margin-top: 15px; font-weight: bold; font-size: 0.9em; min-height: 1.2em; text-align: center;}
+        #message { margin-top: 5px; font-weight: bold; font-size: 0.9em; min-height: 1.2em; text-align: center;}
+
+        /* Animace pro rozbalení úspěšné zprávy */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #success-area {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed var(--success);
+            animation: slideDown 0.4s ease-out;
+        }
+        #success-text { color: #e6edf3; font-size: 1em; border-left: 2px solid var(--success); }
     </style>
 </head>
 <body>
@@ -82,8 +99,13 @@
                 <div id="input-group">
                     <input type="text" id="answer-input" placeholder="Zadej kód nebo odpověď">
                     <button id="submit-btn">Odeslat k analýze</button>
+                    <p id="message"></p>
                 </div>
-                <p id="message"></p>
+
+                <div id="success-area" class="hidden">
+                    <div id="success-text" class="story-text"></div>
+                    <button id="next-station-btn">Přesunout se na další místo</button>
+                </div>
             </div>
         </div>
     </div>
@@ -107,6 +129,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // STRUKTURA HRY OBOHACENÁ O 'successMessage'
         const stations = {
             0: {
                 story: `<div style="border-bottom: 1px solid var(--error); margin-bottom: 15px; padding-bottom: 10px;">
@@ -120,28 +143,33 @@
                 task: `<strong style="color: var(--accent-color);">SYSTÉMOVÉ HLÁŠENÍ: ARCHIV BĚŽÍ V NOUZOVÉM REŽIMU. PROSÍM, POSTUPUJTE PODLE NÁSLEDUJÍCÍCH POKYNŮ:</strong>
                        <ul>
                            <li><strong>Pohyb v terénu:</strong> Aplikace ti vždy zobrazí indicii, kam musíš v Hrádku dojít.</li>
-                           <li><strong>Ověření polohy:</strong> Jakmile dorazíš na místo, rozhlédni se. Aplikace po tobě bude chtít zadat konkrétní detail z místa (letopočet, slovo, atd.), čímž prokážeš, že tam opravdu stojíš.</li>
-                           <li><strong>Bezpečnost dat:</strong> Pokud musíš pátrání přerušit (došla ti baterie, prší, nebo tě sledují), klidně aplikaci zavři. Tvůj postup je bezpečně uložen na našich serverech.</li>
-                           <li><strong>Žebříček agentů:</strong> Za každý úspěšně rozluštěný kód získáváš body. Rychlost a bystrý zrak tě posunou v hodnocení výš.</li>
+                           <li><strong>Ověření polohy:</strong> Jakmile dorazíš na místo, rozhlédni se. Aplikace po tobě bude chtít zadat konkrétní detail z místa, čímž prokážeš, že tam opravdu stojíš.</li>
+                           <li><strong>Bezpečnost dat:</strong> Pokud musíš pátrání přerušit, klidně aplikaci zavři. Tvůj postup je bezpečně uložen na serveru.</li>
                        </ul>
                        <div style="margin-top: 20px; text-align: center; border-top: 1px dashed var(--accent-color); padding-top: 15px;">
-                           <em>Tvůj první cíl je Schubertova vila (Mansberk). Dojdi k její hlavní bráně. Až tam budeš, potvrď připravenost kódem:</em> <strong style="color: white; font-size: 1.1em;">START</strong>
+                           <em>Pro zahájení pátrání zadej kód:</em> <strong style="color: white; font-size: 1.1em;">START</strong>
                        </div>`,
                 key: "START",
-                points: 0
+                points: 0,
+                successMessage: `<p><strong style="color: var(--success);">TOTOŽNOST OVĚŘENA. PŘÍSTUP POVOLEN.</strong></p>
+                                 <p>Tvůj první cíl je <strong>Schubertova vila (Mansberk)</strong>. Dojdi k její hlavní bráně. Až tam budeš a připravíš se na první výzvu, klikni na tlačítko níže.</p>`
             },
             1: {
-                story: `<p>Dobrá práce, jsi na místě. Tady starý Schubert dělal svá nejtajnější rozhodnutí. <br><br> Musíme začít tam, kde to všechno začalo. Schubertova vila. Bývalo to honosné sídlo, ze kterého pan Schubert dohlížel na své impérium. Syndikát tam už pravděpodobně byl, ale nevědí, kam přesně se dívat.</p>`,
+                story: `<p>Jsi u Schubertovy vily. Bývalo to honosné sídlo, ze kterého pan Schubert dohlížel na své impérium. Syndikát tam už pravděpodobně byl, ale nevědí, kam přesně se dívat.</p>`,
                 task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>Když stojíš před hlavní bránou, prohlédni si pozorně schody, které vedou ke dveřím uprostřed budovy. Kolik schodů vede ke dveřím od trávníku?`,
                 key: "9",
                 points: 10,
-                explanation: `<p>Kód přijat! Pod jedním ze schodů jsi našel první fragment plánu. Text na okraji říká: <em>'Zboží musí proudit. Cesta ven je z oceli a páry.'</em></p>`
+                successMessage: `<p><strong style="color: var(--success);">KÓD PŘIJAT.</strong></p>
+                                 <p>Výborně! Pod jedním ze schodů jsi našel první fragment plánu. Text na okraji říká: <em>'Zboží musí proudit. Cesta ven je z oceli a páry.'</em></p>
+                                 <p><strong>DALŠÍ INDICIE:</strong> Vydej se na místo, kudy Schubertovi odesílali své látky do celého světa. Najdi hlavní vlakové nádraží v Hrádku.</p>`
             },
             2: {
-                story: `<p>Kód přijat! Pod jedním ze schodů jsi našel první fragment plánu. Text na okraji říká: <em>'Zboží musí proudit. Cesta ven je z oceli a páry.'</em></p>`,
-                task: `<strong style="color: var(--accent-color);">DALŠÍ INDICIE:</strong><br>Vydej se na místo, kudy Schubertovi odesílali své látky do celého světa. Najdi hlavní vlakové nádraží v Hrádku.`,
+                story: `<p>Nádraží Hrádek nad Nisou. Sem proudily stovky tun zboží, než se po kolejích rozjely do světa.</p>`,
+                task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>[Zatím neznámý úkol - doplň ho, jakmile ho vymyslíš]`,
                 key: "KOLEJE", 
-                points: 10
+                points: 10,
+                successMessage: `<p><strong style="color: var(--success);">KÓD PŘIJAT.</strong></p>
+                                 <p>Další část plánu je tvá...</p>`
             }
         };
 
@@ -213,7 +241,6 @@
                 if(stations[i]) {
                     const opt = document.createElement('option');
                     opt.value = i;
-                    // Stanoviště 0 nazveme "Nouzový protokol", ostatní "Stopa"
                     let name = i === 0 ? "Nouzový protokol" : `Stopa č. ${i}`;
                     opt.innerText = (i === userData.aktualniStanoviste) ? `AKTIVNÍ: ${name}` : `Archiv: ${name}`;
                     select.appendChild(opt);
@@ -231,26 +258,36 @@
             const s = stations[indexToRender];
             const msgArea = document.getElementById('message');
             const inputGroup = document.getElementById('input-group');
+            const successArea = document.getElementById('success-area');
+            const nextBtn = document.getElementById('next-station-btn');
 
             if (s) {
-                // Změněno z innerText na innerHTML pro podporu formátování textu
                 document.getElementById('story-area').innerHTML = s.story;
                 document.getElementById('task-area').innerHTML = s.task;
                 
                 if (indexToRender < userData.aktualniStanoviste) {
+                    // POHLED DO ARCHIVU (Úkol už je splněn)
                     inputGroup.classList.add('hidden');
-                    msgArea.style.color = "var(--success)";
-                    msgArea.innerText = "✓ Tento úkol jsi již úspěšně vyřešil.";
+                    msgArea.innerText = "";
+                    
+                    document.getElementById('success-text').innerHTML = s.successMessage;
+                    successArea.classList.remove('hidden');
+                    nextBtn.classList.add('hidden'); // V archivu není potřeba tlačítko pro posun
                 } else {
+                    // AKTIVNÍ ÚKOL
                     inputGroup.classList.remove('hidden');
                     document.getElementById('answer-input').value = "";
                     msgArea.innerText = "";
+                    
+                    successArea.classList.add('hidden');
+                    nextBtn.classList.remove('hidden');
                 }
             } else {
                 document.getElementById('story-area').innerHTML = "<p>Gratuluji! Našel jsi všechny dostupné fragmenty. Syndikát pro dnešek prohrál, ale brzy přibudou další stanoviště...</p>";
                 document.getElementById('task-area').classList.add('hidden');
                 document.getElementById('history-select').classList.add('hidden');
                 inputGroup.classList.add('hidden');
+                successArea.classList.add('hidden');
             }
         }
 
@@ -260,26 +297,34 @@
             const msg = document.getElementById('message');
 
             if (input === currentStation.key.toUpperCase()) {
-                msg.style.color = "var(--success)";
-                msg.innerText = "✓ KÓD PŘIJAT. ANALÝZA ÚSPĚŠNÁ.";
+                msg.innerText = "";
                 
+                // Schovat zadávání a zobrazit zprávu o úspěchu
+                document.getElementById('input-group').classList.add('hidden');
+                document.getElementById('success-text').innerHTML = currentStation.successMessage;
+                document.getElementById('success-area').classList.remove('hidden');
+                
+                // Posuneme hráče v databázi, ale pohled přepneme až po kliknutí na tlačítko
                 userData.aktualniStanoviste += 1;
                 userData.body += currentStation.points;
-                viewingStationIndex = userData.aktualniStanoviste;
 
                 await updateDoc(doc(db, "hraci", currentUser.uid), {
                     aktualniStanoviste: userData.aktualniStanoviste,
                     body: userData.body
                 });
-
-                setTimeout(() => {
-                    updateHistoryDropdown();
-                    renderStation(viewingStationIndex);
-                }, 2000);
+                
+                updateHistoryDropdown();
             } else {
                 msg.style.color = "var(--error)";
-                msg.innerText = "× CHYBNÝ KÓD. PŘÍSTUP ODMÍTNUT.";
+                msg.innerText = "× CHYBNÝ KÓD. Zkus to znovu.";
             }
+        });
+
+        // Tlačítko, kterým se hráč po dočtení zprávy přesune na další úkol
+        document.getElementById('next-station-btn').addEventListener('click', () => {
+            viewingStationIndex = userData.aktualniStanoviste;
+            document.getElementById('history-select').value = viewingStationIndex;
+            renderStation(viewingStationIndex);
         });
     </script>
 </body>
