@@ -5,18 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stíny Hrádku - Městská Detektivka</title>
     <style>
-        /* Základní stylizace - temný detektivní vzhled */
         :root {
             --bg-color: #1a1a2e;
             --text-color: #e0e0e0;
-            --accent-color: #d4af37; /* Zlatavá barva pro důležité prvky */
+            --accent-color: #d4af37;
             --input-bg: #16213e;
         }
 
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Courier New', Courier, monospace; /* Písmo připomínající psací stroj */
+            font-family: 'Courier New', Courier, monospace;
             background-color: var(--bg-color);
             color: var(--text-color);
             display: flex;
@@ -65,8 +64,7 @@
             border: 1px solid #333;
             color: white;
             border-radius: 5px;
-            box-sizing: border-box; /* Zajistí, že se padding vejde do šířky */
-            font-family: inherit;
+            box-sizing: border-box;
         }
 
         input:focus {
@@ -92,43 +90,140 @@
         button:hover {
             background-color: #f1c40f;
         }
-
-        .footer-text {
-            margin-top: 20px;
-            font-size: 0.8em;
-            color: #666;
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
         }
+
+        .btn-secondary:hover {
+            background-color: rgba(212, 175, 55, 0.1);
+        }
+
+        #message {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #ff6b6b; /* Červená pro chyby */
+            min-height: 20px;
+        }
+
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container" id="login-container">
         <h1>Stíny Hrádku</h1>
         <p class="subtitle">Interaktivní detektivní případ v ulicích města</p>
 
-        <div id="login-section">
-            <div class="form-group">
-                <label for="email">Vyšetřovatelův e-mail:</label>
-                <input type="email" id="email" placeholder="agent@seznam.cz" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Tajné heslo:</label>
-                <input type="password" id="password" placeholder="********" required>
-            </div>
-            <div class="form-group">
-                <label for="nickname">Přezdívka pro žebříček (jen při registraci):</label>
-                <input type="text" id="nickname" placeholder="Např. Sherlock_HN">
-            </div>
-
-            <button id="login-btn">Vstoupit do případu</button>
-            <p class="footer-text">Hra se automaticky ukládá. Můžeš ji kdykoliv přerušit a vrátit se.</p>
+        <div class="form-group">
+            <label for="email">Vyšetřovatelův e-mail:</label>
+            <input type="email" id="email" placeholder="agent@seznam.cz" required>
         </div>
+        <div class="form-group">
+            <label for="password">Tajné heslo (min. 6 znaků):</label>
+            <input type="password" id="password" placeholder="********" required>
+        </div>
+        <div class="form-group">
+            <label for="nickname">Přezdívka (vyplň jen pro novou hru):</label>
+            <input type="text" id="nickname" placeholder="Např. Sherlock_HN">
+        </div>
+
+        <button id="register-btn">Založit nový případ</button>
+        <button id="login-btn" class="btn-secondary">Pokračovat ve vyšetřování</button>
+        
+        <div id="message"></div>
     </div>
 
-    <script>
-        // Placeholder pro budoucí programování logiky
-        document.getElementById('login-btn').addEventListener('click', function() {
-            alert('Tlačítko funguje! V dalším kroku sem napojíme databázi Firebase.');
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+
+        // ==========================================
+        // SEM VLOŽ SVŮJ firebaseConfig KTERÝ SIS ULOŽIL
+        // Původní klíče přepiš svými hodnotami.
+        // ==========================================
+        const firebaseConfig = {
+              apiKey: "AIzaSyCIU-D7oxVbeSRqmxw3BSoAF6hp0DSzs0E",
+              authDomain: "vyzvedaci-hradek.firebaseapp.com",
+              projectId: "vyzvedaci-hradek",
+              storageBucket: "vyzvedaci-hradek.firebasestorage.app",
+              messagingSenderId: "761204740114",
+              appId: "1:761204740114:web:b0407841850474d73848cb",
+              measurementId: "G-C94H1MXBSE"   
+        };
+        // ==========================================
+
+        // Inicializace Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Napojení na HTML prvky
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const nicknameInput = document.getElementById('nickname');
+        const registerBtn = document.getElementById('register-btn');
+        const loginBtn = document.getElementById('login-btn');
+        const messageDiv = document.getElementById('message');
+
+        // Funkce pro zobrazení zpráv
+        function showMessage(text, isError = true) {
+            messageDiv.style.color = isError ? "#ff6b6b" : "#4cd137";
+            messageDiv.innerText = text;
+        }
+
+        // REGISTRACE (Založení nového případu)
+        registerBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const nickname = nicknameInput.value;
+
+            if (!email || !password || !nickname) {
+                showMessage("Pro novou hru musíš vyplnit e-mail, heslo i přezdívku!");
+                return;
+            }
+
+            try {
+                // Vytvoření uživatele ve Firebase
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Uložení přezdívky a statistik do Firestore
+                await setDoc(doc(db, "hraci", user.uid), {
+                    prezdivka: nickname,
+                    body: 0,
+                    aktualniStanoviste: 1,
+                    datumZacatku: new Date().toISOString()
+                });
+
+                showMessage("Úspěšně zaregistrováno! Vítej ve hře, " + nickname, false);
+                // Sem později přidáme přesměrování přímo do hry
+                
+            } catch (error) {
+                showMessage("Chyba při registraci: " + error.message);
+            }
+        });
+
+        // PŘIHLÁŠENÍ (Návrat do hry)
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+                showMessage("Pro přihlášení musíš vyplnit e-mail a heslo!");
+                return;
+            }
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                showMessage("Vítej zpět! Hledám tvé spisy...", false);
+                // Sem později přidáme přesměrování přímo do hry
+
+            } catch (error) {
+                showMessage("Špatný e-mail nebo heslo.");
+            }
         });
     </script>
 </body>
