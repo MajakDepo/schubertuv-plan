@@ -123,7 +123,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, orderBy, getDocs, addDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, orderBy, getDocs, addDoc, serverTimestamp, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIU-D7oxVbeSRqmxw3BSoAF6hp0DSzs0E",
@@ -177,7 +177,15 @@
                 task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>Dojdi na toto místo a spočítej, kolik postav zde vidíš.`,
                 key: "4", points: 10,
                 successMessage: `<p><strong style="color: var(--success);">KÓD PŘIJAT.</strong></p>
-                                 <p>Uvnitř sochy byla tajná zásuvka, kde jsi našel další díl fragmentu.</p>
+                                 <p>Uvnitř sochy byla tajná zásuvka, kde jsi našel další díl fragmentu. Záznam říká: <em>'Vlaky jsou hlídány. Musel jsem hledat útočiště u Boha. Tam, kde město nejhlasitěji odbíjí čas.'</em></p>
+                                 <p><strong>DALŠÍ INDICIE:</strong> Vrať se zpět k centru. Tvým cílem je Kostel sv. Bartoloměje.</p>`
+            },
+            3: {
+                story: `<p>Stojíš před kostelem sv. Bartoloměje. Impozantní stavba, která pamatuje celou historii Hrádku. Zvony ve věži pravidelně odměřují čas všem obyvatelům.</p>`,
+                task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>[Zatím neznámý úkol - např. prohlédni si kříž u fary nebo najdi letopočet na stěně. Doplň podle reality.]`,
+                key: "DOPLNIT", points: 10,
+                successMessage: `<p><strong style="color: var(--success);">KÓD PŘIJAT.</strong></p>
+                                 <p>V puklině zdi jsi našel další část deníku.</p>
                                  <p><strong>DALŠÍ INDICIE:</strong> <em>(Archiv zpracovává další souřadnice...)</em></p>`
             }
         };
@@ -195,7 +203,11 @@
             try {
                 const res = await createUserWithEmailAndPassword(auth, email, pass);
                 await setDoc(doc(db, "hraci", res.user.uid), {
-                    prezdivka: nick, body: 0, aktualniStanoviste: 0, datumZacatku: new Date().toISOString()
+                    prezdivka: nick, 
+                    body: 0, 
+                    aktualniStanoviste: 0, 
+                    aktualniPokusy: 0,
+                    datumZacatku: new Date().toISOString()
                 });
             } catch (e) { document.getElementById('auth-msg').innerText = "Chyba: " + e.message; }
         });
@@ -285,7 +297,9 @@
                 autor: userData.prezdivka,
                 text: text,
                 timestamp: serverTimestamp(),
-                likes: 0, dislikes: 0
+                likes: 0, 
+                dislikes: 0,
+                votedUsers: []
             });
             document.getElementById('new-msg-text').value = "";
             loadMessages();
@@ -293,11 +307,29 @@
 
         window.voteMsg = async function(msgId, field) {
             const msgRef = doc(db, "vzkazy", msgId);
-            await updateDoc(msgRef, { [field]: increment(1) });
-            loadMessages(); // Refresh
+            const msgSnap = await getDoc(msgRef);
+            
+            if (msgSnap.exists()) {
+                const data = msgSnap.data();
+                const votedUsers = data.votedUsers || [];
+                
+                // Kontrola, zda uživatel už nehlasoval
+                if (votedUsers.includes(currentUser.uid)) {
+                    alert("U tohoto vzkazu jsi již hlasoval.");
+                    return;
+                }
+                
+                // Zápis hlasu a uložení uživatele do seznamu hlasujících
+                await updateDoc(msgRef, { 
+                    [field]: increment(1),
+                    votedUsers: arrayUnion(currentUser.uid)
+                });
+                
+                loadMessages(); // Obnova zpráv
+            }
         }
 
-        // GAME LOGIC (Stejná jako minule)
+        // GAME LOGIC 
         function updateHistoryDropdown() {
             const select = document.getElementById('history-select');
             select.innerHTML = '';
@@ -352,18 +384,45 @@
         document.getElementById('submit-btn').addEventListener('click', async () => {
             const input = document.getElementById('answer-input').value.trim().toUpperCase();
             const currentStation = stations[userData.aktualniStanoviste];
+            
+            // Ochrana pro případ, že hráč hraje poprvé a nemá v profilu počet pokusů
+            userData.aktualniPokusy = userData.aktualniPokusy || 0;
+
             if (input === currentStation.key.toUpperCase()) {
                 document.getElementById('input-group').classList.add('hidden');
                 document.getElementById('success-text').innerHTML = currentStation.successMessage;
                 document.getElementById('success-area').classList.remove('hidden');
+                
+                // BODovací systém podle počtu pokusů (kromě úvodního START kódu)
+                let earnedPoints = 0;
+                if (currentStation.points > 0) {
+                    if (userData.aktualniPokusy === 0) earnedPoints = 2; // Na 1. pokus
+                    else if (userData.aktualniPokusy === 1) earnedPoints = 1; // Na 2. pokus
+                    else earnedPoints = 0; // 3. a další pokus
+                }
+
                 userData.aktualniStanoviste += 1;
-                userData.body += currentStation.points;
+                userData.body += earnedPoints;
+                userData.aktualniPokusy = 0; // Vynulování pokusů pro další stanoviště
+                
                 document.getElementById('player-score').innerText = "Body: " + userData.body;
-                await updateDoc(doc(db, "hraci", currentUser.uid), { aktualniStanoviste: userData.aktualniStanoviste, body: userData.body });
+                
+                // Uložení stavu do databáze
+                await updateDoc(doc(db, "hraci", currentUser.uid), { 
+                    aktualniStanoviste: userData.aktualniStanoviste, 
+                    body: userData.body,
+                    aktualniPokusy: 0
+                });
                 updateHistoryDropdown();
             } else {
+                // Přičtení špatného pokusu
+                userData.aktualniPokusy += 1;
+                await updateDoc(doc(db, "hraci", currentUser.uid), { 
+                    aktualniPokusy: userData.aktualniPokusy 
+                });
+
                 document.getElementById('message').style.color = "var(--error)";
-                document.getElementById('message').innerText = "× CHYBNÝ KÓD.";
+                document.getElementById('message').innerText = "× CHYBNÝ KÓD. Zkus to znovu.";
             }
         });
 
