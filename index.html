@@ -129,7 +129,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // STRUKTURA HRY OBOHACENÁ O 'successMessage'
+        // STRUKTURA HRY 
         const stations = {
             0: {
                 story: `<div style="border-bottom: 1px solid var(--error); margin-bottom: 15px; padding-bottom: 10px;">
@@ -155,7 +155,7 @@
                                  <p>Tvůj první cíl je <strong>Schubertova vila </strong>. Dojdi k její hlavní bráně. Až tam budeš a připravíš se na první výzvu, klikni na tlačítko níže.</p>`
             },
             1: {
-                story: `<p>Jsi u Schubertovy vily. Bývalo to honosné sídlo, ze kterého pan Schubert dohlížel na své impérium. Tady  dělal svá nejtajnější rozhodnutí. Musíme začít tam, kde to všechno začalo. Syndikát tam už pravděpodobně byl, ale nevědí, kam přesně se dívat.</p>`,
+                story: `<p>Jsi u Schubertovy vily. Bývalo to honosné sídlo, ze kterého pan Schubert dohlížel na své impérium. Tady dělal svá nejtajnější rozhodnutí. Musíme začít tam, kde to všechno začalo. Syndikát tam už pravděpodobně byl, ale nevědí, kam přesně se dívat.</p>`,
                 task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>Když stojíš před hlavní bránou, prohlédni si pozorně schody, které vedou ke dveřím uprostřed budovy. Kolik schodů vede ke dveřím od trávníku?`,
                 key: "9",
                 points: 10,
@@ -164,12 +164,13 @@
                                  <p><strong>DALŠÍ INDICIE:</strong> Souřadnice dalšího stanoviště vylušti z následujícího kódu: <br><br> 50.856(A)700N, 14.84(B)9005E <br><br> A=součet okenic viděných ze silnice-8 <br><br> B=477-číslo v betonovém zábradlí u branky.</p>`
             },
             2: {
-                story: `<p>Nádraží Hrádek nad Nisou. Sem proudily stovky tun zboží, než se po kolejích rozjely do světa.</p>`,
-                task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>[Zatím neznámý úkol - doplň ho, jakmile ho vymyslíš]`,
-                key: "KOLEJE", 
+                story: `<p>Dorazil jsi na místo, které do života textilní továrny neodmyslitelně patřilo a bylo nedílnou součástí celé logistiky. Potřebuješ najít další fragment plánu. Ten se ukrývá přesně 170 metrů od místa, kde stojíš, a to v azimutu 336°.</p>`,
+                task: `<strong style="color: var(--accent-color);">ÚKOL:</strong><br>Dojdi na toto místo a spočítej, kolik postav zde vidíš.`,
+                key: "4", 
                 points: 10,
                 successMessage: `<p><strong style="color: var(--success);">KÓD PŘIJAT.</strong></p>
-                                 <p>Další část plánu je tvá...</p>`
+                                 <p>Uvnitř sochy byla tajná zásuvka, kde jsi našel další díl fragmentu.</p>
+                                 <p><strong>DALŠÍ INDICIE:</strong> <em>(Archiv zpracovává další souřadnice... [bude doplněno, až vymyslíš další cíl])</em></p>`
             }
         };
 
@@ -272,7 +273,7 @@
                     
                     document.getElementById('success-text').innerHTML = s.successMessage;
                     successArea.classList.remove('hidden');
-                    nextBtn.classList.add('hidden'); // V archivu není potřeba tlačítko pro posun
+                    nextBtn.classList.add('hidden'); 
                 } else {
                     // AKTIVNÍ ÚKOL
                     inputGroup.classList.remove('hidden');
