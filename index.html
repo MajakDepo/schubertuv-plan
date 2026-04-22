@@ -518,6 +518,7 @@
         document.getElementById('history-select').addEventListener('change', (e) => {
             viewingStationIndex = parseInt(e.target.value);
             renderStation(viewingStationIndex);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
         function renderStation(indexToRender) {
@@ -611,10 +612,12 @@
                 document.getElementById('history-select').value = viewingStationIndex;
                 renderStation(viewingStationIndex);
                 switchTab('leaderboard-tab');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 viewingStationIndex = userData.aktualniStanoviste;
                 document.getElementById('history-select').value = viewingStationIndex;
                 renderStation(viewingStationIndex);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
     </script>
